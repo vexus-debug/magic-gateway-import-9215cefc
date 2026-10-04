@@ -38,6 +38,11 @@ import { printPrescription } from "@/lib/printPrescription";
 import { PatientVisitBar } from "@/components/dashboard/PatientVisitBar";
 import { useActiveVisit } from "@/hooks/useActiveVisit";
 import { useStartVisit } from "@/hooks/useVisitFlow";
+import { useAddToWaitingList } from "@/hooks/useWaitingList";
+import { BookAppointmentDialog } from "@/components/dashboard/BookAppointmentDialog";
+import { useQuery } from "@tanstack/react-query";
+import { supabase } from "@/integrations/supabase/client";
+import { CalendarPlus, UserCheck } from "lucide-react";
 import { Grid3x3 as Grid3x3Icon, Stethoscope as StethoscopeIcon } from "lucide-react";
 
 const statusStyles: Record<string, string> = {
@@ -103,6 +108,20 @@ export default function PatientProfilePage() {
   const [selectedInvoice, setSelectedInvoice] = useState<any>(null);
   const [prescriptionOpen, setPrescriptionOpen] = useState(false);
   const [labCaseOpen, setLabCaseOpen] = useState(false);
+  const [bookOpen, setBookOpen] = useState(false);
+  const checkIn = useAddToWaitingList();
+  const isFrontDesk = ["receptionist"].includes(orgRole);
+  const { data: patientAppointments = [] } = useQuery({
+    queryKey: ["patient-appointments", patientId],
+    enabled: !!patientId,
+    queryFn: async () => {
+      const { data, error } = await (supabase as any).from("appointments")
+        .select("id, appointment_date, appointment_time, status, chair, is_walk_in, staff(full_name), treatments(name)")
+        .eq("patient_id", patientId).order("appointment_date", { ascending: false }).limit(100);
+      if (error) throw error;
+      return data || [];
+    },
+  });
   const [noteDialogOpen, setNoteDialogOpen] = useState(false);
   const [noteForm, setNoteForm] = useState({ subjective: "", objective: "", assessment: "", plan: "" });
   const [imageForm, setImageForm] = useState(() => ({
@@ -236,12 +255,22 @@ export default function PatientProfilePage() {
               <Receipt className="mr-2 h-4 w-4" /> Invoice
             </Button>
           )}
-          <Button variant="outline" size="sm" onClick={() => setPrescriptionOpen(true)}>
-            <Pill className="mr-2 h-4 w-4" /> Prescription
+          <Button size="sm" disabled={checkIn.isPending} onClick={() => patientId && checkIn.mutate({ patient_id: patientId })}>
+            <UserCheck className="mr-2 h-4 w-4" /> Check in
           </Button>
-          <Button variant="outline" size="sm" onClick={() => setLabCaseOpen(true)}>
-            <FlaskConical className="mr-2 h-4 w-4" /> Lab case
+          <Button variant="outline" size="sm" onClick={() => setBookOpen(true)}>
+            <CalendarPlus className="mr-2 h-4 w-4" /> Book appointment
           </Button>
+          {!isFrontDesk && (
+            <>
+              <Button variant="outline" size="sm" onClick={() => setPrescriptionOpen(true)}>
+                <Pill className="mr-2 h-4 w-4" /> Prescription
+              </Button>
+              <Button variant="outline" size="sm" onClick={() => setLabCaseOpen(true)}>
+                <FlaskConical className="mr-2 h-4 w-4" /> Lab case
+              </Button>
+            </>
+          )}
         </div>
         {canBill && outstandingBalance > 0 && (
           <div className="text-right" data-tour="patients-detail-balance">
@@ -254,6 +283,7 @@ export default function PatientProfilePage() {
       <Tabs value={activeTab} onValueChange={setActiveTab}>
         <TabsList className="flex-wrap h-auto gap-1" data-tour="patients-detail-tabs">
           <TabsTrigger value="overview">Overview</TabsTrigger>
+          <TabsTrigger value="appointments">Appointments</TabsTrigger>
           <TabsTrigger value="history">{terms.historyTab}</TabsTrigger>
           <TabsTrigger value="plans">Treatment Plans</TabsTrigger>
           {canBill && <TabsTrigger value="billing">Billing</TabsTrigger>}
@@ -529,6 +559,25 @@ export default function PatientProfilePage() {
         </TabsContent>
 
         {/* Prescriptions */}
+        <TabsContent value="appointments" className="mt-4">
+          <Card>
+            <CardHeader><CardTitle className="text-base">Appointments & visits</CardTitle></CardHeader>
+            <CardContent className="space-y-2">
+              {patientAppointments.length === 0 ? (
+                <p className="text-sm text-muted-foreground">No appointments yet.</p>
+              ) : patientAppointments.map((a: any) => (
+                <div key={a.id} className="flex items-center justify-between gap-3 border-b border-border/60 py-2 last:border-0">
+                  <div className="min-w-0">
+                    <p className="text-sm font-medium">{a.appointment_date} · {a.appointment_time}{a.is_walk_in ? " · Walk-in" : ""}</p>
+                    <p className="truncate text-xs text-muted-foreground">{a.treatments?.name || "General"} · {a.staff?.full_name || "—"}{a.chair ? ` · ${a.chair}` : ""}</p>
+                  </div>
+                  <Badge variant="secondary" className="capitalize">{String(a.status).replace("_", " ")}</Badge>
+                </div>
+              ))}
+            </CardContent>
+          </Card>
+        </TabsContent>
+
         <TabsContent value="prescriptions" className="mt-4 space-y-4">
           {prescriptions.length === 0 ? (
             <Card><CardContent className="py-10 text-center text-sm text-muted-foreground">No prescriptions found.</CardContent></Card>
@@ -749,6 +798,7 @@ export default function PatientProfilePage() {
 
       <CreateInvoiceDialog open={invoiceOpen} onOpenChange={setInvoiceOpen} preselectedPatientId={patientId} />
       <InvoiceDetailDialog open={!!selectedInvoice} onOpenChange={(open) => { if (!open) setSelectedInvoice(null); }} invoice={selectedInvoice} />
+      <BookAppointmentDialog open={bookOpen} onOpenChange={setBookOpen} preselectedPatientId={patientId} />
       <CreatePrescriptionDialog open={prescriptionOpen} onOpenChange={setPrescriptionOpen} preselectedPatientId={patientId} />
       <CreateLabCaseDialog open={labCaseOpen} onOpenChange={setLabCaseOpen} preselectedPatientId={patientId} />
 

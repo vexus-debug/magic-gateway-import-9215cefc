@@ -115,13 +115,14 @@ export function useTodaySchedule() {
 
       const { data } = await supabase
         .from("appointments")
-        .select("id, appointment_time, status, chair, notes, staff_id, patients(first_name, last_name), staff(full_name), treatments(name)")
+        .select("id, appointment_time, status, chair, notes, staff_id, patient_id, patients(first_name, last_name), staff(full_name), treatments(name)")
         .eq("org_id", orgId!)
         .eq("appointment_date", today)
         .order("appointment_time");
 
       return (data || []).map((a: any) => ({
         id: a.id,
+        patientId: a.patient_id,
         staffId: a.staff_id,
         time: a.appointment_time?.slice(0, 5) || "",
         patientName: `${a.patients?.first_name || ""} ${a.patients?.last_name || ""}`.trim() || "Unknown",
