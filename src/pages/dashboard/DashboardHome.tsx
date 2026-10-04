@@ -36,6 +36,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { PageTourButton } from "@/components/dashboard/tour/PageTourButton";
 import { EyeTodayScreen } from "@/components/dashboard/eye/EyeTodayScreen";
+import { useAddToWaitingList } from "@/hooks/useWaitingList";
 import { DentistWaitingRoomCard } from "@/components/dashboard/DentistWaitingRoomCard";
 import {
   useCurrentUserName,
@@ -51,6 +52,7 @@ import { cn } from "@/lib/utils";
 type DashboardMode = "owner" | "dentist" | "receptionist";
 type ScheduleItem = {
   id: string;
+  patientId?: string;
   staffId: string;
   time: string;
   patientName: string;
@@ -213,6 +215,7 @@ function StandardDashboardHome() {
   const { data: pulse } = useDentalDashboardPulse();
   const { data: userName } = useCurrentUserName();
   const { currentOrg, basePath } = useOrg();
+  const checkIn = useAddToWaitingList();
   const mode = roleMode(currentOrg?.role || "receptionist");
 
   const schedule = useMemo(() => {
@@ -376,7 +379,11 @@ function StandardDashboardHome() {
                     <span className="w-12 shrink-0 text-sm font-bold tabular-nums text-foreground">{appointment.time}</span>
                     <span className={cn("h-2 w-2 shrink-0 rounded-full", appointment.status === "completed" ? "bg-primary" : "bg-muted-foreground/50")} />
                     <div className="min-w-0 flex-1"><p className="truncate text-sm font-semibold text-foreground">{appointment.patientName}</p><p className="truncate text-xs text-muted-foreground">{appointment.treatment} · {appointment.chair}</p></div>
-                    <span className="text-xs capitalize text-muted-foreground">{appointment.status.replace("-", " ")}</span>
+                    {mode === "receptionist" && appointment.patientId && ["scheduled", "confirmed"].includes(appointment.status) ? (
+                      <Button size="sm" variant="outline" disabled={checkIn.isPending} onClick={() => checkIn.mutate({ patient_id: appointment.patientId!, appointment_id: appointment.id, chair: appointment.chair })}>Check in</Button>
+                    ) : (
+                      <span className="text-xs capitalize text-muted-foreground">{appointment.status.replace("-", " ")}</span>
+                    )}
                   </div>
                 ))}
               </div>
