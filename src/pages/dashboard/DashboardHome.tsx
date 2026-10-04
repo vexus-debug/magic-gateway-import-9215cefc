@@ -1,4 +1,4 @@
-import { useMemo } from "react";
+import { useMemo, useState } from "react";
 import { Link } from "react-router-dom";
 import { format } from "date-fns";
 import { motion } from "framer-motion";
@@ -35,6 +35,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { PageTourButton } from "@/components/dashboard/tour/PageTourButton";
+import { DentistVisitWalkthrough } from "@/components/dashboard/tour/DentistVisitWalkthrough";
 import { EyeTodayScreen } from "@/components/dashboard/eye/EyeTodayScreen";
 import { useAddToWaitingList } from "@/hooks/useWaitingList";
 import { DentistWaitingRoomCard } from "@/components/dashboard/DentistWaitingRoomCard";
@@ -216,6 +217,7 @@ function StandardDashboardHome() {
   const { data: userName } = useCurrentUserName();
   const { currentOrg, basePath } = useOrg();
   const checkIn = useAddToWaitingList();
+  const [walkOpen, setWalkOpen] = useState(false);
   const mode = roleMode(currentOrg?.role || "receptionist");
 
   const schedule = useMemo(() => {
@@ -295,7 +297,11 @@ function StandardDashboardHome() {
           <p className="text-sm text-muted-foreground">{format(new Date(), "EEEE, MMMM d")}</p>
           <h1 className="mt-1 text-2xl font-bold text-foreground">{getGreeting()}, {userName || "there"}</h1>
         </div>
-        <PageTourButton />
+        <div className="flex items-center gap-2">
+          {mode === "dentist" && <Button size="sm" variant="outline" onClick={() => setWalkOpen(true)}>Walk through a visit</Button>}
+          <PageTourButton />
+        </div>
+        {mode === "dentist" && <DentistVisitWalkthrough open={walkOpen} onOpenChange={setWalkOpen} />}
       </div>
 
       {showOnboarding && (
